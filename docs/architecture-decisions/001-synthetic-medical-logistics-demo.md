@@ -1,4 +1,4 @@
-# ADR 001: Synthetic Medical Logistics Demo, Inspired by a Real Operational Incident
+﻿# ADR 001: Synthetic Medical Logistics Demo, Inspired by a Real Operational Incident
 
 ## Context
 
@@ -29,3 +29,9 @@ Considered using anonymized real incident data. Rejected: even anonymized, real 
 ## Revisit If
 
 A second specimen type with genuinely different handling requirements is needed, at that point the SLA window and safe-handling rules should become configurable per specimen type rather than hardcoded for v1. Secondary actors get added one at a time, only when a real use case demands them, not speculatively. If this ever generalizes beyond medical logistics into legal chain-of-custody or another regulated-transport domain, that's a new ADR, not a silent scope expansion of this one.
+
+## Update (July 9, 2026)
+
+All four v1 Lambdas are built, deployed, and verified end to end: `SpecimenCollected`, `CourierAccepted`, `CourierStatusUpdate` (handling both `IN_TRANSIT` and `DELIVERED`), and `LabVerified`. A single specimen was pushed through the complete lifecycle (`COLLECTED -> ACCEPTED -> IN_TRANSIT -> DELIVERED -> VERIFIED`) via real HTTP requests authenticated as each of the four actor roles, confirming correct state-guard enforcement, idempotent writes, and EventBridge publication at every step.
+
+Not yet built: the SLA-checker Lambda that scans the `status-sla-index` GSI for overdue specimens and triggers escalation, the actual reliability piece this project exists to demonstrate.
