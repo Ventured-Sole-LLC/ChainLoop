@@ -1,8 +1,9 @@
-import json
+﻿import json
 import boto3
 import uuid
 import os
 import time
+from datetime import datetime, timedelta, timezone
 from botocore.exceptions import ClientError
 
 dynamodb = boto3.resource('dynamodb')
@@ -13,6 +14,7 @@ projection_table = dynamodb.Table(os.environ['PROJECTION_TABLE_NAME'])
 EVENT_BUS_NAME = os.environ['EVENT_BUS_NAME']
 
 ALLOWED_GROUPS = {'lab-tech'}
+SLA_WINDOW_HOURS = 2
 
 
 def log(level, message, **fields):
@@ -42,6 +44,14 @@ def lambda_handler(event, context):
         log('WARN', 'Rejected request missing required fields',
             lambda_request_id=lambda_request_id, caller_sub=caller_sub)
         return {'statusCode': 400, 'body': json.dumps({'error': 'specimen_type, timestamp, and idempotency_key are required'})}
+
+    try:
+        collected_at = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+        sla_due_at = (collected_at + timedelta(hours=SLA_WINDOW_HOURS)).isoformat()
+    except (ValueError, AttributeError) as e:
+        log('WARN', 'Rejected request with unparseable timestamp',
+            lambda_request_id=lambda_request_id, timestamp=timestamp, error=str(e))
+        return {'statusCode': 400, 'body': json.dumps({'error': 'timestamp must be a valid ISO 8601 datetime'})}
 
     specimen_id = f"SPEC#{idempotency_key}"
     event_type = "SpecimenCollected"
@@ -76,7 +86,7 @@ def lambda_handler(event, context):
                 'record_type': 'SUMMARY',
                 'current_status': 'COLLECTED',
                 'last_event_at': timestamp,
-                'sla_due_at': timestamp,
+                'sla_due_at': sla_due_at,
                 'current_owner': caller_sub,
                 'specimen_type': specimen_type,
                 'escalation_status': 'NONE',
@@ -104,7 +114,7 @@ def lambda_handler(event, context):
         return {'statusCode': 500, 'body': json.dumps({'error': 'Recorded but failed to fully process, contact support', 'specimen_id': specimen_id})}
 
     log('INFO', 'Specimen collection recorded successfully',
-        lambda_request_id=lambda_request_id, specimen_id=specimen_id,
+        lambda_request_id=lambda_request_id, specimen_id=specimen_id, sla_due_at=sla_due_at,
         duration_ms=round((time.time() - start_time) * 1000, 2))
 
-    return {'statusCode': 200, 'body': json.dumps({'message': 'Specimen collection recorded', 'specimen_id': specimen_id})}
+    return {'statusCode': 200, 'body': json.dumps({'message': 'Specimen collection recorded', 'specimen_id': specimen_id, 'sla_due_at': sla_due_at})}
