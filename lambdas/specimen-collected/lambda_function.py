@@ -43,7 +43,7 @@ def lambda_handler(event, context):
             lambda_request_id=lambda_request_id, caller_sub=caller_sub)
         return {'statusCode': 400, 'body': json.dumps({'error': 'specimen_type, timestamp, and idempotency_key are required'})}
 
-    specimen_id = f"SPEC#{uuid.uuid4()}"
+    specimen_id = f"SPEC#{idempotency_key}"
     event_type = "SpecimenCollected"
     sort_key = f"{timestamp}#{event_type}#{idempotency_key}"
 
