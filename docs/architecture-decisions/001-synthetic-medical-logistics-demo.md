@@ -35,3 +35,9 @@ A second specimen type with genuinely different handling requirements is needed,
 All four v1 Lambdas are built, deployed, and verified end to end: `SpecimenCollected`, `CourierAccepted`, `CourierStatusUpdate` (handling both `IN_TRANSIT` and `DELIVERED`), and `LabVerified`. A single specimen was pushed through the complete lifecycle (`COLLECTED -> ACCEPTED -> IN_TRANSIT -> DELIVERED -> VERIFIED`) via real HTTP requests authenticated as each of the four actor roles, confirming correct state-guard enforcement, idempotent writes, and EventBridge publication at every step.
 
 Not yet built: the SLA-checker Lambda that scans the `status-sla-index` GSI for overdue specimens and triggers escalation, the actual reliability piece this project exists to demonstrate.
+
+## Update (July 10, 2026)
+
+The SLA-checker Lambda is live, running on a 5-minute EventBridge Scheduler cycle. Verified with a real test: manually set a specimen's sla_due_at into the past, confirmed the scheduled Lambda detected it on its next run, updated escalation_status to ESCALATED, and published both an SNS alert and an EventBridge event, without any human triggering the check. This closes the loop on the actual incident that inspired this project: a specimen missing its safe window is now something the system catches automatically, not something a courier discovers by chance.
+
+All five states of the v1 custody lifecycle, plus automated SLA enforcement, are now built, deployed, and verified end to end.
