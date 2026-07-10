@@ -39,3 +39,9 @@ Performing the dedup check as a conditional write on the persist step, rather th
 ## Revisit If
 
 A legitimate need arises to distinguish an intentional correction from an accidental duplicate, at that point a distinct `CorrectionRecorded` event type should be introduced rather than stretching the idempotency key to serve both purposes.
+
+## Update (July 9, 2026)
+
+Initial implementation generated `specimen_id` with a random UUID on every invocation, independent of the client-supplied `idempotency_key`. This meant the conditional write's uniqueness check was scoped to a partition key that changed on every call, so a genuine retry with the same idempotency key still created a new specimen record instead of being rejected. Caught through live end-to-end testing: submitting the same request twice returned two different specimen IDs instead of the expected "already recorded" response.
+
+Fixed by deriving `specimen_id` directly from the idempotency key (`SPEC#{idempotency_key}`), so a retry with the same key now writes to the same partition and the conditional write correctly rejects the duplicate. Verified with a repeated live request returning the identical `specimen_id` and an "Already recorded" message on the second call.
